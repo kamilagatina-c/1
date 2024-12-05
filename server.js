@@ -29,15 +29,13 @@ connection.connect(err => {
     }
 });
 
+// CRUD
 
-
-//CRUD
 // Добавление записи
 app.post("/api/:table", (req, res) => {
     const { table } = req.params;
     const data = req.body;
 
-    // Определяем разрешённые таблицы и их поля
     const tableFields = {
         clients: ["full_name", "email", "phone", "status_id"],
         filmdatabase: ["film_name", "rating", "genre_id", "tape_id"],
@@ -48,12 +46,10 @@ app.post("/api/:table", (req, res) => {
         violations: ["fine"],
     };
 
-    // Проверка наличия таблицы в списке разрешённых
     if (!Object.keys(tableFields).includes(table)) {
         return res.status(400).json({ error: "Таблица недоступна" });
     }
 
-    // Проверка наличия обязательных полей
     const requiredFields = tableFields[table];
     const missingFields = requiredFields.filter((field) => !(field in data));
     if (missingFields.length) {
@@ -63,10 +59,8 @@ app.post("/api/:table", (req, res) => {
         });
     }
 
-    // Генерация запроса
     const sql = `INSERT INTO ${table} (${requiredFields.join(", ")}) VALUES (${requiredFields.map(() => "?").join(", ")})`;
 
-    // Выполнение запроса
     connection.query(sql, requiredFields.map((field) => data[field]), (err, result) => {
         if (err) {
             console.error("Ошибка добавления:", err.message);
@@ -76,18 +70,15 @@ app.post("/api/:table", (req, res) => {
     });
 });
 
-
 // Получение данных из таблицы
 app.get("/api/:table", (req, res) => {
     const table = req.params.table;
 
-    // Проверка на доступные таблицы
     const allowedTables = ["clients", "filmdatabase", "genre", "rental", "status", "tapes", "violations"];
     if (!allowedTables.includes(table)) {
         return res.status(400).json({ error: "Таблица недоступна" });
     }
 
-    // Запрос к базе данных
     connection.query(`SELECT * FROM ${table}`, (err, results) => {
         if (err) {
             console.error("Ошибка запроса:", err.message);
@@ -102,7 +93,6 @@ app.put("/api/:table/:id", (req, res) => {
     const { table, id } = req.params;
     const data = req.body;
 
-    // Список разрешенных таблиц и их ключей
     const tableKeys = {
         clients: "client_id",
         filmdatabase: "film_id",
@@ -113,7 +103,6 @@ app.put("/api/:table/:id", (req, res) => {
         violations: "violation_id",
     };
 
-    // Проверяем, существует ли таблица
     const primaryKey = tableKeys[table];
     if (!primaryKey) {
         return res.status(400).json({ error: "Таблица недоступна" });
@@ -128,12 +117,10 @@ app.put("/api/:table/:id", (req, res) => {
     });
 });
 
-
 // Удаление записи
 app.delete("/api/:table/:id", (req, res) => {
     const { table, id } = req.params;
 
-    // Список разрешенных таблиц и их ключей
     const tableKeys = {
         clients: "client_id",
         filmdatabase: "film_id",
@@ -144,13 +131,11 @@ app.delete("/api/:table/:id", (req, res) => {
         violations: "violation_id",
     };
 
-    // Проверяем, существует ли таблица
     const primaryKey = tableKeys[table];
     if (!primaryKey) {
         return res.status(400).json({ error: "Таблица недоступна" });
     }
 
-    // Выполняем запрос на удаление
     connection.query(`DELETE FROM ${table} WHERE ${primaryKey} = ?`, [id], (err, result) => {
         if (err) {
             console.error("Ошибка удаления:", err.message);
@@ -159,7 +144,6 @@ app.delete("/api/:table/:id", (req, res) => {
         res.json({ message: "Запись удалена", affectedRows: result.affectedRows });
     });
 });
-
 
 // Получение записи по ID
 app.get("/api/:table/:id", (req, res) => {
@@ -192,12 +176,60 @@ app.get("/api/:table/:id", (req, res) => {
             if (results.length === 0) {
                 return res.status(404).json({ error: "Запись не найдена" });
             }
-            res.json(results[0]); // Возвращаем первую запись
+            res.json(results[0]);
         }
     );
 });
 
+// Поиск записей по параметрам
+app.get("/api/:table/search", (req, res) => {
+    const { table } = req.params;
+    const queryParams = req.query;
 
+    const allowedTables = {
+        clients: ["full_name", "email", "phone"],
+        filmdatabase: ["film_name", "rating"],
+        genre: ["name"],
+        rental: ["client_id", "tape_id"],
+        status: ["name"],
+        tapes: ["cost"],
+        violations: ["fine"],
+    };
+
+    if (!Object.keys(allowedTables).includes(table)) {
+        return res.status(400).json({ error: "Таблица недоступна" });
+    }
+
+    const searchFields = allowedTables[table];
+    const conditions = [];
+    const values = [];
+
+    for (const [key, value] of Object.entries(queryParams)) {
+        if (searchFields.includes(key)) {
+            conditions.push(`${key} LIKE ?`);
+            values.push(`%${value}%`);
+        }
+    }
+
+    if (conditions.length === 0) {
+        return res.status(400).json({ error: "Не указаны корректные параметры поиска" });
+    }
+
+    const orderBy = req.query.orderBy || `${searchFields[0]}`;
+    const sort = req.query.sort === "DESC" ? "DESC" : "ASC";
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const sql = `SELECT * FROM ${table} WHERE ${conditions.join(" AND ")} ORDER BY ${orderBy} ${sort} LIMIT ? OFFSET ?`;
+
+    connection.query(sql, [...values, limit, offset], (err, results) => {
+        if (err) {
+            console.error("Ошибка поиска:", err.message);
+            return res.status(500).json({ error: "Ошибка сервера" });
+        }
+        res.json(results);
+    });
+});
 
 // Запуск сервера
 const PORT = 3000;
