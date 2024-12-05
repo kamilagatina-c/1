@@ -1,15 +1,23 @@
 // Обработчик кликов на пункты меню
 document.querySelectorAll(".sidebar ul li").forEach((item) => {
-    item.addEventListener("click", async () => {
+    item.addEventListener("click", () => {
         const tableKey = item.dataset.table;
-        await fetchTableData(tableKey);
+        renderTable(tableKey);
     });
 });
 
 // URL API
 const apiUrl = "http://localhost:3000/api";
 
-// Функция для получения данных и отображения таблицы
+// Обработчик кликов на пункты меню
+document.querySelectorAll(".sidebar ul li").forEach((item) => {
+    item.addEventListener("click", async () => {
+        const tableKey = item.dataset.table;
+        await fetchTableData(tableKey);
+    });
+});
+
+// Получение данных и рендер таблицы
 async function fetchTableData(tableKey) {
     const container = document.getElementById("table-container");
     const title = document.getElementById("table-title");
@@ -29,32 +37,79 @@ async function fetchTableData(tableKey) {
     }
 }
 
-// Функция для поиска данных
-async function searchTableData(tableKey, searchField, searchValue) {
-    const container = document.getElementById("table-container");
-    const title = document.getElementById("table-title");
+//CRUD
+// Добавление записи
+function createRecord(tableName) {
 
-    try {
-        const response = await fetch(`${apiUrl}/${tableKey}?${searchField}=${searchValue}`);
-        if (!response.ok) {
-            throw new Error("Ошибка поиска данных");
-        }
+    // Определяем обязательные поля для каждой таблицы
+    const tableFields = {
+        clients: ["full_name", "email", "phone", "status_id"],
+        filmdatabase: ["film_name", "rating", "genre_id", "tape_id"],
+        genre: ["name"],
+        rental: ["client_id", "tape_id", "service_date", "expected_return_date", "return_date", "violation_id"],
+        status: ["name"],
+        tapes: ["cost"],
+        violations: ["fine"],
+    };
 
-        const data = await response.json();
-        renderTable(data, tableKey);
-    } catch (error) {
-        console.error("Ошибка:", error);
-        container.innerHTML = "<p>Ошибка поиска данных</p>";
-        title.textContent = "Ошибка";
+    const requiredFields = tableFields[tableName] || [];
+    if (!requiredFields.length) {
+        alert("Неизвестная таблица.");
+        return;
     }
+
+    // Генерируем форму с обязательными полями
+    const formFields = requiredFields
+        .map(
+            (field) => `
+                <label for="${field}">${field}:</label>
+                <input type="text" id="${field}" name="${field}" required>
+                <br>
+            `
+        )
+        .join("");
+
+    openModal(
+        "Добавить запись",
+        `<form id="create-form">${formFields}</form>`,
+        () => {
+            const form = document.getElementById("create-form");
+            const formData = Object.fromEntries(new FormData(form));
+
+            // Выполняем запрос на сервер для добавления записи
+            fetch(`/api/${tableName}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formData),
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Ошибка при добавлении записи");
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    console.log("Запись добавлена:", data);
+                    closeModal();
+                    refreshTable(tableName); // Обновляем таблицу
+                })
+                .catch((error) => {
+                    console.error("Ошибка:", error);
+                    alert("Не удалось добавить запись.");
+                });
+        }
+    );
 }
 
-// Функция для рендеринга таблицы
+
+// Рендер таблицы с выбором столбца для поиска
 function renderTable(data, tableName) {
     const container = document.getElementById("table-container");
     const title = document.getElementById("table-title");
-
-    // Если данных нет
+    const searchContainer = document.getElementById("search-container");
+    
     if (!data.length) {
         container.innerHTML = "<p>Данные отсутствуют</p>";
         title.textContent = `Таблица: ${tableName}`;
@@ -63,23 +118,24 @@ function renderTable(data, tableName) {
 
     title.textContent = `Таблица: ${tableName}`;
 
-    // Добавляем кнопку добавления записи и форму поиска
+    // Генерация выпадающего списка для поиска по столбцам
+    const columns = Object.keys(data[0]);
+    const columnSelect = document.getElementById("column-select");
+    columnSelect.innerHTML = "";  // Очищаем список перед добавлением новых элементов
+    columns.forEach((col) => {
+        const option = document.createElement("option");
+        option.value = col;
+        option.textContent = col;
+        columnSelect.appendChild(option);
+    });
+
+    // Добавляем кнопку добавления записи
     const addButtonHtml = `<button onclick="createRecord('${tableName}')">Добавить запись</button>`;
-    const searchFormHtml = `
-        <form id="searchForm" onsubmit="handleSearch(event, '${tableName}')">
-            <label for="searchField">Поле поиска:</label>
-            <select id="searchField" name="searchField">
-                ${Object.keys(data[0]).map(field => `<option value="${field}">${field}</option>`).join("")}
-            </select>
-            <input type="text" id="searchValue" name="searchValue" placeholder="Введите значение">
-            <button type="submit">Искать</button>
-        </form>
-    `;
 
     let tableHtml = "<table><thead><tr>";
 
     // Генерация заголовков
-    Object.keys(data[0]).forEach((col) => {
+    columns.forEach((col) => {
         tableHtml += `<th>${col}</th>`;
     });
     tableHtml += "<th>Действия</th></tr></thead><tbody>";
@@ -97,8 +153,8 @@ function renderTable(data, tableName) {
     // Генерация строк
     data.forEach((row) => {
         tableHtml += "<tr>";
-        Object.values(row).forEach((value) => {
-            tableHtml += `<td>${value}</td>`;
+        columns.forEach((col) => {
+            tableHtml += `<td>${row[col]}</td>`;
         });
 
         const primaryKey = tablePrimaryKeys[tableName];
@@ -114,20 +170,172 @@ function renderTable(data, tableName) {
 
     tableHtml += "</tbody></table>";
 
-    // Объединяем таблицу, кнопку добавления и форму поиска
-    container.innerHTML = searchFormHtml + addButtonHtml + tableHtml;
+    // Добавляем поле поиска над таблицей
+    searchContainer.innerHTML = `
+        <label for="column-select">Выберите столбец для поиска:</label>
+        <select id="column-select">
+            ${columns.map(col => `<option value="${col}">${col}</option>`).join('')}
+        </select>
+        <label for="search-value">Значение:</label>
+        <input type="text" id="search-value" placeholder="Введите значение для поиска">
+        <button type="button" onclick="filterTable()">Искать</button>
+    `;
+
+    // Объединяем таблицу и кнопку
+    container.innerHTML = addButtonHtml + tableHtml;
 }
 
-// Обработчик отправки формы поиска
-function handleSearch(event, tableName) {
-    event.preventDefault(); // Предотвращаем перезагрузку страницы
-    const searchField = document.getElementById("searchField").value;
-    const searchValue = document.getElementById("searchValue").value;
+// Фильтрация таблицы по выбранному столбцу
+function filterTable() {
+    const searchValue = document.getElementById("search-value").value.toLowerCase();
+    const columnSelect = document.getElementById("column-select");
+    const selectedColumn = columnSelect.value;
+    const rows = document.querySelectorAll("#table-container table tbody tr");
 
-    if (!searchValue.trim()) {
-        alert("Введите значение для поиска.");
-        return;
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        let matchFound = false;
+
+        // Находим индекс выбранного столбца
+        const columnIndex = Array.from(columnSelect.options).findIndex(option => option.value === selectedColumn);
+        const cell = cells[columnIndex];
+
+        // Проверяем значение в выбранном столбце
+        if (cell && cell.textContent.toLowerCase().includes(searchValue)) {
+            matchFound = true;
+        }
+
+        row.style.display = matchFound ? "" : "none"; // Показываем или скрываем строку
+    });
+}
+
+function editRecord(tableName, id) {
+    // Получаем данные записи по ID
+    fetch(`/api/${tableName}/${id}`)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error("Ошибка при получении записи");
+            }
+            return response.json();
+        })
+        .then((record) => {
+            // Генерируем форму с текущими значениями
+            const formFields = Object.keys(record)
+                .map(
+                    (key) => `
+                        <label for="${key}">${key}:</label>
+                        <input type="text" id="${key}" name="${key}" value="${record[key]}" required>
+                        <br>
+                    `
+                )
+                .join("");
+
+            // Открываем модальное окно с формой
+            openModal(
+                "Изменить запись",
+                `<form id="edit-form">${formFields}</form>`,
+                () => {
+                    const form = document.getElementById("edit-form");
+                    const formData = Object.fromEntries(new FormData(form));
+
+                    // Отправляем обновлённые данные на сервер
+                    fetch(`/api/${tableName}/${id}`, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(formData),
+                    })
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error("Ошибка при изменении записи");
+                            }
+                            return response.json();
+                        })
+                        .then((data) => {
+                            console.log("Запись изменена:", data);
+                            closeModal();
+                            refreshTable(tableName); // Обновляем таблицу
+                        })
+                        .catch((error) => {
+                            console.error("Ошибка:", error);
+                            alert("Не удалось изменить запись.");
+                        });
+                }
+            );
+        })
+        .catch((error) => {
+            console.error("Ошибка при получении записи:", error);
+            alert("Не удалось загрузить данные записи.");
+        });
+}
+
+
+// Удаление записи
+function deleteRecord(tableName, id) {
+    openModal(
+        "Удалить запись",
+        `<p>Вы уверены, что хотите удалить запись с ID: ${id}?</p>`,
+        () => {
+            fetch(`/api/${tableName}/${id}`, {
+                method: "DELETE",
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Ошибка при удалении записи");
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    console.log("Запись удалена:", data);
+                    closeModal();
+                    refreshTable(tableName); // Обновить таблицу
+                })
+                .catch((error) => {
+                    console.error("Ошибка:", error);
+                    alert("Не удалось удалить запись.");
+                });
+        }
+    );
+}
+
+function refreshTable(tableName) {
+    fetch(`/api/${tableName}`)
+        .then((response) => response.json())
+        .then((data) => {
+            renderTable(data, tableName); // Обновляем таблицу
+        })
+        .catch((error) => {
+            console.error("Ошибка при обновлении таблицы:", error);
+        });
+}
+
+
+function openModal(title, bodyContent, actionCallback) {
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modal-title");
+    const modalBody = document.getElementById("modal-body");
+    const modalActionButton = document.getElementById("modal-action-button");
+
+    modalTitle.textContent = title; // Устанавливаем заголовок
+    modalBody.innerHTML = bodyContent; // Устанавливаем контент
+    modalActionButton.onclick = actionCallback; // Устанавливаем действие
+
+    modal.style.display = "block"; // Показываем модальное окно
+}
+
+function closeModal() {
+    const modal = document.getElementById("modal");
+    modal.style.display = "none"; // Скрываем модальное окно
+}
+
+// Закрытие модального окна при клике вне его
+window.onclick = function (event) {
+    const modal = document.getElementById("modal");
+    if (event.target === modal) {
+        closeModal();
     }
+};
 
-    searchTableData(tableName, searchField, searchValue);
-}
+
+

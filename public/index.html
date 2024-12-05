@@ -12,13 +12,13 @@
   <nav class="sidebar">
     <h2>Таблицы</h2>
     <ul>
-      <li data-table="clients" onclick="selectTable('clients')">Клиенты</li>
-      <li data-table="filmdatabase" onclick="selectTable('filmdatabase')">Кинопоиск</li>
-      <li data-table="genre" onclick="selectTable('genre')">Жанр</li>
-      <li data-table="rental" onclick="selectTable('rental')">Прокат</li>
-      <li data-table="status" onclick="selectTable('status')">Статус</li>
-      <li data-table="tapes" onclick="selectTable('tapes')">Кассеты</li>
-      <li data-table="violations" onclick="selectTable('violations')">Нарушения</li>
+      <li data-table="clients">Клиенты</li>
+      <li data-table="filmdatabase">Кинопоиск</li>
+      <li data-table="genre">Жанр</li>
+      <li data-table="rental">Прокат</li>
+      <li data-table="status">Статус</li>
+      <li data-table="tapes">Кассеты</li>
+      <li data-table="violations">Нарушения</li>
     </ul>
   </nav>
 
@@ -26,16 +26,18 @@
   <main class="content">
     <h2 id="table-title">Выберите таблицу</h2>
 
-    <!-- Форма поиска -->
-    <form id="searchForm" style="display: none;">
-      <label for="search-field">Поле поиска:</label>
-      <input type="text" id="search-field" placeholder="Введите название поля">
-      
-      <label for="search-value">Значение:</label>
-      <input type="text" id="search-value" placeholder="Введите значение для поиска">
-      
-      <button type="submit">Искать</button>
-    </form>
+    <!-- Контейнер для поиска -->
+<div id="search-container">
+  <label for="column-select">Выберите столбец для поиска:</label>
+  <select id="column-select">
+    <!-- Столбцы будут добавляться динамически через JS -->
+  </select>
+
+  <label for="search-value">Значение:</label>
+  <input type="text" id="search-value" placeholder="Введите значение для поиска">
+  
+  <button type="button" onclick="filterTable()">Искать</button>
+</div>
 
     <!-- Контейнер для таблицы -->
     <div id="table-container">
