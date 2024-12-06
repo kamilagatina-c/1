@@ -535,4 +535,3 @@ fetch(`${apiUrl}/clients/${primaryKeyValue}`)
     console.error("Ошибка:", error);
     alert("Ошибка доступа: " + error.message);
   });
-
