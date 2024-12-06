@@ -38,278 +38,14 @@ async function fetchTableData(tableKey) {
         title.textContent = "Ошибка";
     }
 }
-// Функция открытия модального окна
-function openModal(title, bodyContent, onSubmit) {
-    console.log("Открытие модального окна", title);
 
-    // Закрываем уже открытое модальное окно (если оно есть)
-    const existingModal = document.querySelector('.modal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-
-    // Открываем новое модальное окно
-    const modal = document.createElement('div');
-    modal.classList.add('modal');
-    
-    const modalContent = document.createElement('div');
-    modalContent.classList.add('modal-content');
-    
-    const modalTitle = document.createElement('h2');
-    modalTitle.textContent = title;
-    
-    const modalBody = document.createElement('div');
-    modalBody.innerHTML = bodyContent;
-
-    const submitButton = document.createElement('button');
-    submitButton.textContent = 'Закрыть';
-    submitButton.addEventListener('click', function() {
-        onSubmit(); 
-        closeModal(); 
-    });
-    
-    modalContent.appendChild(modalTitle);
-    modalContent.appendChild(modalBody);
-    modalContent.appendChild(submitButton);
-    modal.appendChild(modalContent);
-
-    document.body.appendChild(modal); 
-    console.log("Модальное окно добавлено в DOM"); 
-}
-
-
-
-
-// Функция закрытия модального окна
-function closeModal() {
-    console.log("Закрытие модального окна");  // Проверка
-    const modal = document.querySelector('.modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
-
-
-// Функция для отображения кнопок администратора
-function showAdminButtons() {
-    const adminActions = document.getElementById("admin-actions");
-    
-    if (adminActions) {  // Проверяем, существует ли элемент
-        if (isAdmin) {
-            adminActions.style.display = "block";  // Показываем кнопки CRUD
-        } else {
-            adminActions.style.display = "none";   // Скрываем кнопки CRUD
-        }
-    } else {
-        console.error("Элемент с id 'admin-actions' не найден.");
-    }
-}
-
-
-// CRUD
-// Фильтрация таблицы по выбранному столбцу
-function filterTable() {
-    const searchValue = document.getElementById("search-value").value.trim().toLowerCase(); // Убираем пробелы и приводим к нижнему регистру
-    const columnSelect = document.getElementById("column-select");
-    const selectedColumn = columnSelect.value;
-    const rows = document.querySelectorAll("#table-container table tbody tr");
-
-    rows.forEach((row) => {
-        const cells = row.querySelectorAll("td");
-        let matchFound = false;
-
-        // Находим индекс выбранного столбца
-        const columnIndex = Array.from(columnSelect.options).findIndex(option => option.value === selectedColumn);
-        const cell = cells[columnIndex];
-
-        // Проверяем полное совпадение значения в выбранном столбце
-        if (cell && cell.textContent.trim().toLowerCase() === searchValue) {
-            matchFound = true;
-        }
-
-        row.style.display = matchFound ? "" : "none"; // Показываем или скрываем строку
-    });
-}
-
-function editRecord(tableName, id) {
-    // Получаем данные записи по ID
-    fetch(`/api/${tableName}/${id}`)
-        .then((response) => {
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Запись не найдена");
-        }
-        throw new Error("Ошибка при получении записи");
-      }
-      return response.json();
-    })
-        .then((record) => {
-            // Генерируем форму с текущими значениями
-            const formFields = Object.keys(record)
-                .map(
-                    (key) => `
-                        <label for="${key}">${key}:</label>
-                        <input type="text" id="${key}" name="${key}" value="${record[key]}" required>
-                        <br>
-                    `
-                )
-                .join("");
-
-            // Открываем модальное окно с формой
-            openModal(
-                "Изменить запись",
-                `<form id="edit-form">${formFields}</form>`,
-                () => {
-                    const form = document.getElementById("edit-form");
-                    const formData = Object.fromEntries(new FormData(form));
-
-                    // Отправляем обновлённые данные на сервер
-                    fetch(`/api/${tableName}/${id}`, {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(formData),
-                    })
-                        .then((response) => {
-                            if (!response.ok) {
-                                throw new Error("Ошибка при изменении записи");
-                            }
-                            return response.json();
-                        })
-                        .then((data) => {
-                            console.log("Запись изменена:", data);
-                            closeModal();
-                            refreshTable(tableName); // Обновляем таблицу
-                        })
-                        .catch((error) => {
-                            console.error("Ошибка:", error);
-                            alert("Не удалось изменить запись.");
-                        });
-                }
-            );
-        })
-        .catch((error) => {
-            console.error("Ошибка при получении записи:", error);
-            alert("Не удалось загрузить данные записи.");
-        });
-}
-
-
-// Удаление записи
-function deleteRecord(tableName, id) {
-    openModal(
-        "Удалить запись",
-        `<p>Вы уверены, что хотите удалить запись с ID: ${id}?</p>`,
-        () => {
-            fetch(`/api/${tableName}/${id}`, {
-                method: "DELETE",
-            })
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error("Ошибка при удалении записи");
-                    }
-                    return response.json();
-                })
-                .then((data) => {
-                    console.log("Запись удалена:", data);
-                    closeModal();
-                    refreshTable(tableName); // Обновить таблицу
-                })
-                .catch((error) => {
-                    console.error("Ошибка:", error);
-                    alert("Не удалось удалить запись.");
-                });
-        }
-    );
-}
-
-function refreshTable(tableName) {
-    fetch(`/api/${tableName}`)
-        .then((response) => response.json())
-        .then((data) => {
-            renderTable(data, tableName); // Обновляем таблицу
-        })
-        .catch((error) => {
-            console.error("Ошибка при обновлении таблицы:", error);
-        });
-}
-
-
-// Добавление записи
-function createRecord(tableName) {
-    if (!isAdmin) {
-        alert("Для добавления записи требуется авторизация как администратор.");
-        return;
-    }
-
-    // Определяем обязательные поля для каждой таблицы
-    const tableFields = {
-        clients: ["full_name", "email", "phone", "status_id"],
-        filmdatabase: ["film_name", "rating", "genre_id", "tape_id"],
-        genre: ["name"],
-        rental: ["client_id", "tape_id", "service_date", "expected_return_date", "return_date", "violation_id"],
-        status: ["name"],
-        tapes: ["cost"],
-        violations: ["fine"],
-    };
-
-    const requiredFields = tableFields[tableName] || [];
-    if (!requiredFields.length) {
-        alert("Неизвестная таблица.");
-        return;
-    }
-
-    // Генерируем форму с обязательными полями
-    const formFields = requiredFields
-        .map(
-            (field) => `
-                <label for="${field}">${field}:</label>
-                <input type="text" id="${field}" name="${field}" required>
-                <br>
-            `
-        )
-        .join("");
-
-    openModal(
-        "Добавить запись",
-        `<form id="create-form">${formFields}</form>`,
-        () => {
-            const form = document.getElementById("create-form");
-            const formData = Object.fromEntries(new FormData(form));
-
-            // Выполняем запрос на сервер для добавления записи
-            fetch(`/api/${tableName}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formData),
-            })
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error("Ошибка при добавлении записи");
-                    }
-                    return response.json();
-                })
-                .then((data) => {
-                    console.log("Запись добавлена:", data);
-                    closeModal();
-                    refreshTable(tableName); // Обновляем таблицу
-                })
-                .catch((error) => {
-                    console.error("Ошибка:", error);
-                    alert("Не удалось добавить запись.");
-                });
-        }
-    );
-}
 // Рендер таблицы с выбором столбца для поиска
 function renderTable(data, tableName) {
     const container = document.getElementById("table-container");
     const title = document.getElementById("table-title");
     const searchContainer = document.getElementById("search-container");
+    const addButton = `${isAdmin ? `<button onclick="createRecord('${tableName}')">Добавить запись</button>` : ""}   `;
+     
     
     if (!data.length) {
         container.innerHTML = "<p>Данные отсутствуют</p>";
@@ -381,7 +117,279 @@ data.forEach((row) => {
     `;
 
     // Объединяем таблицу и поле поиска
-    container.innerHTML = tableHtml;
+    container.innerHTML = addButton + tableHtml;
+}
+
+// CRUD
+// Добавление записи
+function createRecord(tableName) {
+
+    // Определяем обязательные поля для каждой таблицы
+    const tableFields = {
+        clients: ["full_name", "email", "phone", "status_id"],
+        filmdatabase: ["film_name", "rating", "genre_id", "tape_id"],
+        genre: ["name"],
+        rental: ["client_id", "tape_id", "service_date", "expected_return_date", "return_date", "violation_id"],
+        status: ["name"],
+        tapes: ["cost"],
+        violations: ["fine"],
+    };
+
+    const requiredFields = tableFields[tableName] || [];
+    if (!requiredFields.length) {
+        alert("Неизвестная таблица.");
+        return;
+    }
+
+    // Генерируем форму с обязательными полями
+    const formFields = requiredFields
+        .map(
+            (field) => `
+                <label for="${field}">${field}:</label>
+                <input type="text" id="${field}" name="${field}" required>
+                <br>
+            `
+        )
+        .join("");
+
+    openModal(
+        "Добавить запись",
+        `<form id="create-form">${formFields}</form>`,
+        () => {
+            const form = document.getElementById("create-form");
+            const formData = Object.fromEntries(new FormData(form));
+
+            // Выполняем запрос на сервер для добавления записи
+            fetch(`/api/${tableName}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formData),
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Ошибка при добавлении записи");
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    console.log("Запись добавлена:", data);
+                    closeModal();
+                    refreshTable(tableName); // Обновляем таблицу
+                })
+                .catch((error) => {
+                    console.error("Ошибка:", error);
+                    alert("Не удалось добавить запись.");
+                });
+        }
+    );
+}
+//console.log(`${apiUrl}/${tableName}/${id}`);
+function editRecord(tableName, id) {
+    // Получаем данные записи по ID
+
+    fetch(`${apiUrl}/${tableName}/${id}`)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error("Ошибка при получении записи");
+            }
+            return response.json();
+        })
+        .then((record) => {
+            // Генерируем форму с текущими значениями
+            const formFields = Object.keys(record)
+                .map(
+                    (key) => `
+                        <label for="${key}">${key}:</label>
+                        <input type="text" id="${key}" name="${key}" value="${record[key]}" required>
+                        <br>
+                    `
+                )
+                .join("");
+
+            // Открываем модальное окно с формой
+            openModal(
+                "Изменить запись",
+                `<form id="edit-form">${formFields}</form>`,
+                () => {
+                    const form = document.getElementById("edit-form");
+                    const formData = Object.fromEntries(new FormData(form));
+
+                    // Отправляем обновлённые данные на сервер
+                    fetch(`/api/${tableName}/${id}`, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(formData),
+                    })
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error("Ошибка при изменении записи");
+                            }
+                            return response.json();
+                        })
+                        .then((data) => {
+                            console.log("Запись изменена:", data);
+                            closeModal();
+                            refreshTable(tableName); // Обновляем таблицу
+                        })
+                        .catch((error) => {
+                            console.error("Ошибка:", error);
+                            alert("Не удалось изменить запись.");
+                        });
+                }
+            );
+        })
+        .catch((error) => {
+            console.error("Ошибка при получении записи:", error);
+            alert("Не удалось загрузить данные записи.");
+        });
+}
+
+// Удаление записи
+function deleteRecord(tableName, id) {
+    openModal(
+        "Удалить запись",
+        `<p>Вы уверены, что хотите удалить запись с ID: ${id}?</p>`,
+        () => {
+            fetch(`/api/${tableName}/${id}`, {
+                method: "DELETE",
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Ошибка при удалении записи");
+                    }
+                    return response.json();
+                })
+                .then((data) => {
+                    console.log("Запись удалена:", data);
+                    closeModal();
+                    refreshTable(tableName); // Обновить таблицу
+                })
+                .catch((error) => {
+                    console.error("Ошибка:", error);
+                    alert("Не удалось удалить запись.");
+                });
+        }
+    );
+}
+
+function refreshTable(tableName) {
+    fetch(`/api/${tableName}`)
+        .then((response) => response.json())
+        .then((data) => {
+            renderTable(data, tableName); // Обновляем таблицу
+        })
+        .catch((error) => {
+            console.error("Ошибка при обновлении таблицы:", error);
+        });
+}
+
+// Фильтрация таблицы по выбранному столбцу
+function filterTable() {
+    const searchValue = document.getElementById("search-value").value.trim().toLowerCase(); // Убираем пробелы и приводим к нижнему регистру
+    const columnSelect = document.getElementById("column-select");
+    const selectedColumn = columnSelect.value;
+    const rows = document.querySelectorAll("#table-container table tbody tr");
+
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        let matchFound = false;
+
+        // Находим индекс выбранного столбца
+        const columnIndex = Array.from(columnSelect.options).findIndex(option => option.value === selectedColumn);
+        const cell = cells[columnIndex];
+
+        // Проверяем полное совпадение значения в выбранном столбце
+        if (cell && cell.textContent.trim().toLowerCase() === searchValue) {
+            matchFound = true;
+        }
+
+        row.style.display = matchFound ? "" : "none"; // Показываем или скрываем строку
+    });
+}
+
+// Функция открытия модального окна
+// Функция открытия модального окна
+function openModal(title, bodyContent, onSubmit, admin = false) {
+    console.log("Открытие модального окна", title);
+
+    // Закрываем уже открытое модальное окно (если оно есть)
+    const existingModal = document.querySelector('.modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Открываем новое модальное окно
+    const modal = document.createElement('div');
+    modal.classList.add('modal');
+    
+    const modalContent = document.createElement('div');
+    modalContent.classList.add('modal-content');
+    
+    const modalTitle = document.createElement('h2');
+    modalTitle.textContent = title;
+    
+    const modalBody = document.createElement('div');
+    modalBody.innerHTML = bodyContent;
+
+    // Контейнер для кнопок
+    const buttonContainer = document.createElement('div');
+    buttonContainer.classList.add('modal-buttons');
+
+    // Кнопка "Ок"
+    if (!admin) {
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Ок';
+        submitButton.addEventListener('click', function() {
+            onSubmit(); 
+            closeModal(); 
+        });
+        buttonContainer.appendChild(submitButton);
+    }
+
+    // Кнопка "Закрыть"
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Закрыть';
+    closeButton.addEventListener('click', function() {
+        closeModal(); 
+    });
+    buttonContainer.appendChild(closeButton);
+
+    // Сборка модального окна
+    modalContent.appendChild(modalTitle);
+    modalContent.appendChild(modalBody);
+    modalContent.appendChild(buttonContainer);
+    modal.appendChild(modalContent);
+
+    document.body.appendChild(modal); 
+    console.log("Модальное окно добавлено в DOM"); 
+}
+
+// Функция закрытия модального окна
+function closeModal() {
+    console.log("Закрытие модального окна");  // Проверка
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Функция для отображения кнопок администратора
+function showAdminButtons() {
+    const adminActions = document.getElementById("admin-actions");
+    
+    if (adminActions) {  // Проверяем, существует ли элемент
+        if (isAdmin) {
+            adminActions.style.display = "block";  // Показываем кнопки CRUD
+        } else {
+            adminActions.style.display = "none";   // Скрываем кнопки CRUD
+        }
+    } else {
+        console.error("Элемент с id 'admin-actions' не найден.");
+    }
 }
 
 function adminLogin() {
@@ -438,23 +446,12 @@ function removeActionButtons() {
   });
 }
 
-// Функция для закрытия модального окна
-function closeModal() {
-    console.log("Закрытие модального окна");
-    const modal = document.querySelector('.modal');
-    if (modal) {
-        modal.remove();
-    }
-}
-
 // Обработка отправки формы авторизации
 document.getElementById("login-form").addEventListener("submit", (event) => {
   event.preventDefault();
   adminLogin();
 });
 
-
-// Функция вызова модального окна для авторизации
 // Функция вызова модального окна для авторизации
 function openAdminLoginModal() {
     openModal(
@@ -469,7 +466,8 @@ function openAdminLoginModal() {
             </form>
             <p id="error-message" style="color: red; display: none;">Неверный логин или пароль</p>
         `,
-        () => {}
+        () => {},
+        true
     );
 
     // Привязка события отправки формы к вызову `adminLogin`
