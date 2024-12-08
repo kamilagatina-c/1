@@ -20,27 +20,73 @@
       <li data-table="tapes">Кассеты</li>
       <li data-table="violations">Нарушения</li>
     </ul>
+    <button id="admin-btn">Я администратор</button>
   </nav>
 
   <!-- Правая панель -->
   <main class="content">
     <h2 id="table-title">Выберите таблицу</h2>
+
+    <!-- Кнопка "Добавить запись"
+    <button id="add-record" class="admin-only" style="margin-bottom: 20px; display: none;">Добавить запись</button> -->
+
+    <!-- Контейнер для поиска -->
+    <div id="search-container">
+      <label for="column-select">Выберите столбец для поиска:</label>
+      <select id="column-select">
+        <!-- Столбцы будут добавляться динамически через JS -->
+      </select>
+
+      <label for="search-value">Значение:</label>
+      <input type="text" id="search-value" placeholder="Введите значение для поиска">
+      
+      <button type="button" onclick="filterTable()">Искать</button>
+    </div>
+
+    <!-- Контейнер для таблицы -->
     <div id="table-container">
-      <!-- Здесь будет отображаться таблица -->
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th class="actions-column">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Пример записи</td>
+            <td class="actions-cell admin-only" style="display: none;">
+              <button class="edit-record-btn">Изменить</button>
+              <button class="delete-record-btn">Удалить</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </main>
 </div>
 
-<div id="modal" class="modal">
+<!-- Модальное окно для авторизации -->
+<div id="modal" class="modal" style="display: none;">
   <div class="modal-content">
     <span class="close" onclick="closeModal()">&times;</span>
-    <h2 id="modal-title"></h2>
-    <div id="modal-body"></div>
-    <button id="modal-action-button" onclick="">OK</button>
+    <h2>Авторизация администратора</h2>
+    <form id="login-form">
+      <label for="username">Логин:</label>
+      <input type="text" id="username" required><br><br>
+      <label for="password">Пароль:</label>
+      <input type="password" id="password" required><br><br>
+      <button type="submit">Войти</button>
+    </form>
+    <p id="error-message" style="color: red; display: none;">Неверный логин или пароль</p>
   </div>
 </div>
 
 
 <script src="script.js"></script>
+<link rel="stylesheet" href="styles.css">
 </body>
 </html>
+

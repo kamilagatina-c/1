@@ -1,13 +1,12 @@
-// Обработчик кликов на пункты меню
-document.querySelectorAll(".sidebar ul li").forEach((item) => {
-    item.addEventListener("click", () => {
-        const tableKey = item.dataset.table;
-        renderTable(tableKey);
-    });
-});
+//новый
+// Административные данные (логин и пароль)
+const adminCredentials = {
+    username: "admin",
+    password: "admin123"
+};
 
-// URL API
-const apiUrl = "http://localhost:3000/api";
+// Флаг, который определяет, авторизован ли администратор
+let isAdmin = false;
 
 // Обработчик кликов на пункты меню
 document.querySelectorAll(".sidebar ul li").forEach((item) => {
@@ -16,6 +15,9 @@ document.querySelectorAll(".sidebar ul li").forEach((item) => {
         await fetchTableData(tableKey);
     });
 });
+
+// URL API
+const apiUrl = "http://localhost:3000/api";
 
 // Получение данных и рендер таблицы
 async function fetchTableData(tableKey) {
@@ -37,7 +39,88 @@ async function fetchTableData(tableKey) {
     }
 }
 
-//CRUD
+// Рендер таблицы с выбором столбца для поиска
+function renderTable(data, tableName) {
+    const container = document.getElementById("table-container");
+    const title = document.getElementById("table-title");
+    const searchContainer = document.getElementById("search-container");
+    const addButton = `${isAdmin ? `<button onclick="createRecord('${tableName}')">Добавить запись</button>` : ""}   `;
+     
+    
+    if (!data.length) {
+        container.innerHTML = "<p>Данные отсутствуют</p>";
+        title.textContent = `Таблица: ${tableName}`;
+        return;
+    }
+
+    title.textContent = `Таблица: ${tableName}`;
+
+    // Генерация выпадающего списка для поиска по столбцам
+    const columns = Object.keys(data[0]);
+    const columnSelect = document.getElementById("column-select");
+    columnSelect.innerHTML = "";  // Очищаем список перед добавлением новых элементов
+    columns.forEach((col) => {
+        const option = document.createElement("option");
+        option.value = col;
+        option.textContent = col;
+        columnSelect.appendChild(option);
+    });
+
+    let tableHtml = "<table><thead><tr>";
+
+    // Генерация заголовков
+    columns.forEach((col) => {
+        tableHtml += `<th>${col}</th>`;
+    });
+    tableHtml += "<th>Действия</th></tr></thead><tbody>";
+
+    const tablePrimaryKeys = {
+        clients: "client_id",
+        filmdatabase: "film_id",
+        genre: "genre_id",
+        rental: "rental_id",
+        status: "status_id",
+        tapes: "tape_id",
+        violations: "violation_id",
+    };
+
+    // Генерация строк таблицы
+data.forEach((row) => {
+  tableHtml += "<tr>";
+  columns.forEach((col) => {
+    tableHtml += `<td>${row[col]}</td>`;
+  });
+
+  const primaryKey = tablePrimaryKeys[tableName];
+
+  tableHtml += `
+    <td>
+      ${isAdmin ? `<button onclick="editRecord('${tableName}', ${row[primaryKey]})">Изменить</button>` : ""}
+      ${isAdmin ? `<button onclick="deleteRecord('${tableName}', ${row[primaryKey]})">Удалить</button>` : ""}
+    </td>
+  `;
+  tableHtml += "</tr>";
+});
+
+
+    tableHtml += "</tbody></table>";
+
+    // Добавляем поле поиска над таблицей
+    searchContainer.innerHTML = `
+        <label for="column-select">Выберите столбец для поиска:</label>
+        <select id="column-select">
+            ${columns.map(col => `<option value="${col}">${col}</option>`).join('')}
+        </select>
+        <label for="search-value">Значение:</label>
+        <input type="text" id="search-value" placeholder="Введите значение для поиска">
+        <button type="button" onclick="filterTable()">Искать</button>
+    `;
+
+    // Объединяем таблицу и поле поиска
+    container.innerHTML = addButton + tableHtml;
+}
+
+// CRUD
 // Добавление записи
 function createRecord(tableName) {
 
@@ -102,69 +185,11 @@ function createRecord(tableName) {
         }
     );
 }
-
-
-// Рендер таблицы с кнопками управления
-function renderTable(data, tableName) {
-    const container = document.getElementById("table-container");
-    const title = document.getElementById("table-title");
-
-    if (!data.length) {
-        container.innerHTML = "<p>Данные отсутствуют</p>";
-        title.textContent = `Таблица: ${tableName}`;
-        return;
-    }
-
-    title.textContent = `Таблица: ${tableName}`;
-
-    // Добавляем кнопку добавления записи под заголовком
-    const addButtonHtml = `<button onclick="createRecord('${tableName}')">Добавить запись</button>`;
-
-    let tableHtml = "<table><thead><tr>";
-
-    // Генерация заголовков
-    Object.keys(data[0]).forEach((col) => {
-        tableHtml += `<th>${col}</th>`;
-    });
-    tableHtml += "<th>Действия</th></tr></thead><tbody>";
-
-    const tablePrimaryKeys = {
-        clients: "client_id",
-        filmdatabase: "film_id",
-        genre: "genre_id",
-        rental: "rental_id",
-        status: "status_id",
-        tapes: "tape_id",
-        violations: "violation_id",
-    };
-
-    // Генерация строк
-    data.forEach((row) => {
-        tableHtml += "<tr>";
-        Object.values(row).forEach((value) => {
-            tableHtml += `<td>${value}</td>`;
-        });
-
-        const primaryKey = tablePrimaryKeys[tableName]; // Получаем ключ для текущей таблицы
-
-        tableHtml += `
-      <td>
-        <button onclick="deleteRecord('${tableName}', ${row[primaryKey]})">Удалить</button>
-        <button onclick="editRecord('${tableName}', ${row[primaryKey]})">Изменить</button>
-      </td>
-    `;
-        tableHtml += "</tr>";
-    });
-
-    tableHtml += "</tbody></table>";
-
-    // Объединяем таблицу и кнопку
-    container.innerHTML = addButtonHtml + tableHtml;
-}
-
+//console.log(`${apiUrl}/${tableName}/${id}`);
 function editRecord(tableName, id) {
     // Получаем данные записи по ID
-    fetch(`/api/${tableName}/${id}`)
+
+    fetch(`${apiUrl}/${tableName}/${id}`)
         .then((response) => {
             if (!response.ok) {
                 throw new Error("Ошибка при получении записи");
@@ -223,7 +248,6 @@ function editRecord(tableName, id) {
         });
 }
 
-
 // Удаление записи
 function deleteRecord(tableName, id) {
     openModal(
@@ -263,32 +287,249 @@ function refreshTable(tableName) {
         });
 }
 
+// Фильтрация таблицы по выбранному столбцу
+function filterTable() {
+    const searchValue = document.getElementById("search-value").value.trim().toLowerCase(); // Убираем пробелы и приводим к нижнему регистру
+    const columnSelect = document.getElementById("column-select");
+    const selectedColumn = columnSelect.value;
+    const rows = document.querySelectorAll("#table-container table tbody tr");
 
-function openModal(title, bodyContent, actionCallback) {
-    const modal = document.getElementById("modal");
-    const modalTitle = document.getElementById("modal-title");
-    const modalBody = document.getElementById("modal-body");
-    const modalActionButton = document.getElementById("modal-action-button");
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        let matchFound = false;
 
-    modalTitle.textContent = title; // Устанавливаем заголовок
-    modalBody.innerHTML = bodyContent; // Устанавливаем контент
-    modalActionButton.onclick = actionCallback; // Устанавливаем действие
+        // Находим индекс выбранного столбца
+        const columnIndex = Array.from(columnSelect.options).findIndex(option => option.value === selectedColumn);
+        const cell = cells[columnIndex];
 
-    modal.style.display = "block"; // Показываем модальное окно
+        // Проверяем полное совпадение значения в выбранном столбце
+        if (cell && cell.textContent.trim().toLowerCase() === searchValue) {
+            matchFound = true;
+        }
+
+        row.style.display = matchFound ? "" : "none"; // Показываем или скрываем строку
+    });
 }
 
-function closeModal() {
-    const modal = document.getElementById("modal");
-    modal.style.display = "none"; // Скрываем модальное окно
-}
+// Функция открытия модального окна
+// Функция открытия модального окна
+function openModal(title, bodyContent, onSubmit, admin = false) {
+    console.log("Открытие модального окна", title);
 
-// Закрытие модального окна при клике вне его
-window.onclick = function (event) {
-    const modal = document.getElementById("modal");
-    if (event.target === modal) {
-        closeModal();
+    // Закрываем уже открытое модальное окно (если оно есть)
+    const existingModal = document.querySelector('.modal');
+    if (existingModal) {
+        existingModal.remove();
     }
-};
+
+    // Открываем новое модальное окно
+    const modal = document.createElement('div');
+    modal.classList.add('modal');
+    
+    const modalContent = document.createElement('div');
+    modalContent.classList.add('modal-content');
+    
+    const modalTitle = document.createElement('h2');
+    modalTitle.textContent = title;
+    
+    const modalBody = document.createElement('div');
+    modalBody.innerHTML = bodyContent;
+
+    // Контейнер для кнопок
+    const buttonContainer = document.createElement('div');
+    buttonContainer.classList.add('modal-buttons');
+
+    // Кнопка "Ок"
+    if (!admin) {
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Ок';
+        submitButton.addEventListener('click', function() {
+            onSubmit(); 
+            closeModal(); 
+        });
+        buttonContainer.appendChild(submitButton);
+    }
+
+    // Кнопка "Закрыть"
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Закрыть';
+    closeButton.addEventListener('click', function() {
+        closeModal(); 
+    });
+    buttonContainer.appendChild(closeButton);
+
+    // Сборка модального окна
+    modalContent.appendChild(modalTitle);
+    modalContent.appendChild(modalBody);
+    modalContent.appendChild(buttonContainer);
+    modal.appendChild(modalContent);
+
+    document.body.appendChild(modal); 
+    console.log("Модальное окно добавлено в DOM"); 
+}
+
+// Функция закрытия модального окна
+function closeModal() {
+    console.log("Закрытие модального окна");  // Проверка
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Функция для отображения кнопок администратора
+function showAdminButtons() {
+    const adminActions = document.getElementById("admin-actions");
+    
+    if (adminActions) {  // Проверяем, существует ли элемент
+        if (isAdmin) {
+            adminActions.style.display = "block";  // Показываем кнопки CRUD
+        } else {
+            adminActions.style.display = "none";   // Скрываем кнопки CRUD
+        }
+    } else {
+        console.error("Элемент с id 'admin-actions' не найден.");
+    }
+}
+
+function adminLogin() {
+  const username = document.getElementById("username");
+  const password = document.getElementById("password");
+
+  if (username && password) {  // Проверяем существование элементов
+    if (username.value === adminCredentials.username && password.value === adminCredentials.password) {
+      isAdmin = true; // Устанавливаем флаг администратора
+      toggleAdminMode(true); // Активируем административный режим
+      closeModal(); // Закрываем модальное окно
+    } else {
+      const errorMessage = document.getElementById("error-message");
+      if (errorMessage) {
+        errorMessage.style.display = "block";
+      }
+    }
+  } else {
+    console.error("Не найдены элементы для логина и пароля");
+  }
+}
+
+// Функция для переключения режима администратора
+function toggleAdminMode(isAdmin) {
+  const adminElements = document.querySelectorAll(".admin-only");
+
+  // Показываем/скрываем элементы для администратора
+  adminElements.forEach((el) => {
+    el.style.display = isAdmin ? "block" : "none";
+  });
+ const addButton = document.getElementById("add-record");
+  if (addButton) {
+    addButton.style.display = isAdmin ? "block" : "none";
+  }
+
+  // Перерисовываем таблицу, чтобы обновить кнопки в ячейках
+  const activeTable = document.querySelector(".sidebar ul li.active");
+  if (activeTable) {
+    const tableKey = activeTable.dataset.table;
+    fetchTableData(tableKey); // Повторно рендерим таблицу
+  }
+}
 
 
+// Функция для удаления кнопок "Добавить запись" из столбца "Действия"
+function removeActionButtons() {
+  const actionCells = document.querySelectorAll(".actions-cell"); // Пример: класс для ячеек столбца "Действия"
 
+  actionCells.forEach(cell => {
+    const addButton = cell.querySelector(".add-record-btn");
+    if (addButton) {
+      addButton.remove();
+    }
+  });
+}
+
+// Обработка отправки формы авторизации
+document.getElementById("login-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  adminLogin();
+});
+
+// Функция вызова модального окна для авторизации
+function openAdminLoginModal() {
+    openModal(
+        "Авторизация администратора",
+        `
+            <form id="login-form">
+                <label for="username">Логин:</label>
+                <input type="text" id="username" required><br><br>
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" required><br><br>
+                <button type="submit">Войти</button>
+            </form>
+            <p id="error-message" style="color: red; display: none;">Неверный логин или пароль</p>
+        `,
+        () => {},
+        true
+    );
+
+    // Привязка события отправки формы к вызову `adminLogin`
+    const loginForm = document.getElementById("login-form");
+    loginForm.addEventListener("submit", function (event) {
+        event.preventDefault(); // Останавливаем стандартное поведение
+        adminLogin(); // Вызываем функцию для авторизации
+    });
+}
+
+
+// Обработка логина администратора
+function submitAdminLogin() {
+    const username = document.getElementById("admin-username").value;
+    const password = document.getElementById("admin-password").value;
+    adminLogin(username, password);
+    closeModal();
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Убедитесь, что элементы загружены
+  const loginForm = document.getElementById("login-form");
+  
+  if (loginForm) {
+    // Обработчик для кнопки "Войти"
+    loginForm.addEventListener("submit", function (event) {
+      event.preventDefault(); // Останавливаем стандартное поведение формы
+      adminLogin(); // Вызываем функцию для авторизации
+    });
+  }
+document.addEventListener("DOMContentLoaded", function () {
+  const username = document.getElementById("username");
+  const password = document.getElementById("password");
+
+  if (!username || !password) {
+    console.error("Не найдены элементы для логина и пароля");
+  }
+});
+
+  // Ваши другие функции могут быть внутри этого обработчика
+});
+document.getElementById("login-form").addEventListener("submit", (event) => {
+  event.preventDefault(); // Останавливаем стандартное поведение формы
+  adminLogin(); // Вызываем функцию авторизации
+});
+
+document.getElementById("admin-btn").addEventListener("click", () => {
+    console.log("Кнопка нажата!");  // Проверка нажатия кнопки
+    openAdminLoginModal();
+});
+fetch(`${apiUrl}/clients/${primaryKeyValue}`)
+  .then(response => {
+    if (!response.ok) {
+      console.error(`Ошибка запроса: ${response.status} ${response.statusText}`);
+      throw new Error("Доступ запрещён");
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log("Данные клиента:", data);
+  })
+  .catch(error => {
+    console.error("Ошибка:", error);
+    alert("Ошибка доступа: " + error.message);
+  });
